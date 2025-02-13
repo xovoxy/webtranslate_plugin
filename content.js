@@ -1,8 +1,11 @@
 (function () {
   let translationEnabled = false;
-  let currentTranslation = null;
-
-  // 移除了内嵌的 CSS 样式，请确保 manifest.json 已经引入了 style.css
+  // 使用数组保存所有已插入的翻译文本
+  let currentTranslations = [];
+  // 记录鼠标按下时的位置
+  let mouseDownPos = { x: 0, y: 0 };
+  // 标志：判断鼠标操作是否为拖拽选择文本（拖拽距离超过阈值时认为是选择）
+  let isDragSelection = false;
 
   // 创建图标按钮，内嵌 SVG 图标
   const button = document.createElement('button');
@@ -32,6 +35,11 @@
   `;
   document.body.appendChild(button);
 
+  // 监听鼠标按下，记录起始坐标
+  document.addEventListener('mousedown', function (e) {
+    mouseDownPos = { x: e.clientX, y: e.clientY };
+  });
+
   // 从 storage 中读取自动翻译状态
   chrome.storage.sync.get(['translationEnabled'], function (result) {
     translationEnabled = result.translationEnabled || false;
@@ -51,7 +59,8 @@
       addEventListeners();
     } else {
       removeEventListeners();
-      removeTranslation();
+      // 当关闭自动翻译时，也清除所有翻译
+      removeAllTranslations();
     }
   });
 
@@ -77,10 +86,19 @@
 
   // 处理文本选中事件
   function handleTextSelection(e) {
+    // 避免在点击翻译按钮时触发翻译
     if (e.target.closest('#translate-toggle')) return;
+
+    // 计算鼠标拖拽距离，判断是否为选择操作
+    const mouseUpPos = { x: e.clientX, y: e.clientY };
+    const dx = mouseUpPos.x - mouseDownPos.x;
+    const dy = mouseUpPos.y - mouseDownPos.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    // 如果拖拽距离大于5像素，则认为是文本选择操作
+    isDragSelection = distance > 5;
+
     const selectionText = window.getSelection().toString().trim();
     if (selectionText) {
-      removeTranslation();
       fetchTranslation(selectionText)
         .then(data => {
           insertTranslation(selectionText, data.translation);
@@ -92,35 +110,47 @@
     }
   }
 
-  // 点击页面其他区域时，移除翻译结果（不包括按钮区域）
+  // 点击页面其他区域时，移除所有翻译文本
   function handleDocumentClick(e) {
-    if (!e.target.closest('#translate-toggle')) {
-      removeTranslation();
+    // 如果上一次操作是拖拽选择，则忽略这次点击（只重置标志）
+    if (isDragSelection) {
+      isDragSelection = false;
+      return;
+    }
+    if (!e.target.closest('#translate-toggle') && !e.target.closest('.translation-container')) {
+      removeAllTranslations();
     }
   }
 
-  // 移除当前插入的翻译结果
-  function removeTranslation() {
-    if (currentTranslation) {
-      currentTranslation.remove();
-      currentTranslation = null;
-    }
+  // 移除所有插入的翻译文本
+  function removeAllTranslations() {
+    currentTranslations.forEach(translation => translation.remove());
+    currentTranslations = [];
   }
 
-  // 在选中文本后插入翻译结果（仅插入中文翻译，不添加背景框）
+  // 在选中文本后插入翻译结果（使用容器包装）
   function insertTranslation(originalText, translatedText) {
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
     const range = selection.getRangeAt(0);
     range.collapse(false);
-    const fragment = document.createDocumentFragment();
-    fragment.appendChild(document.createElement('br'));
+    
+    // 创建容器包装翻译结果
+    const container = document.createElement('div');
+    container.className = 'translation-container';
+    
+    // 可选：插入一个换行
+    container.appendChild(document.createElement('br'));
+    
     const translationSpan = document.createElement('span');
     translationSpan.className = 'translation-text';
     translationSpan.textContent = translatedText;
-    fragment.appendChild(translationSpan);
-    range.insertNode(fragment);
-    currentTranslation = translationSpan;
+    container.appendChild(translationSpan);
+    
+    range.insertNode(container);
+    
+    // 保存到数组中，便于后续统一删除
+    currentTranslations.push(container);
   }
 
   // 调用免费的 Google 翻译接口进行翻译
@@ -176,7 +206,7 @@
         addEventListeners();
       } else {
         removeEventListeners();
-        removeTranslation();
+        removeAllTranslations();
       }
     }
   });
