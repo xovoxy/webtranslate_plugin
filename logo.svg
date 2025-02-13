@@ -1,25 +1,34 @@
-<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- 对角线渐变背景 -->
-    <linearGradient id="rectGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#6A82FB"/>
-      <stop offset="100%" stop-color="#2575FC"/>
+    <!-- 左侧渐变：蓝色调 -->
+    <linearGradient id="leftGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2575FC"/>
+      <stop offset="100%" stop-color="#6A82FB"/>
     </linearGradient>
-    <!-- 阴影效果 -->
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.2"/>
-    </filter>
+    <!-- 右侧渐变：暖色调 -->
+    <linearGradient id="rightGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#F2994A"/>
+      <stop offset="100%" stop-color="#F2C94C"/>
+    </linearGradient>
   </defs>
-  <!-- 圆角矩形背景 -->
-  <rect x="4" y="4" width="40" height="40" rx="8" ry="8" fill="url(#rectGrad)" filter="url(#shadow)"/>
-  <!-- 左侧字母 A -->
-  <text x="16" y="26" text-anchor="middle" dominant-baseline="middle"
-        font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#FFFFFF" font-weight="bold">
+  
+  <!-- 左半部分，带圆角 -->
+  <rect x="2" y="2" width="30" height="60" rx="12" ry="12" fill="url(#leftGrad)"/>
+  <!-- 右半部分，带圆角 -->
+  <rect x="32" y="2" width="30" height="60" rx="12" ry="12" fill="url(#rightGrad)"/>
+  
+  <!-- 左侧文字 A -->
+  <text x="17" y="42" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="24" fill="#FFFFFF" font-weight="bold">
     A
   </text>
-  <!-- 右侧汉字 中 -->
-  <text x="32" y="26" text-anchor="middle" dominant-baseline="middle"
-        font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#FFFFFF" font-weight="bold">
+  
+  <!-- 右侧文字 中 -->
+  <text x="47" y="42" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="24" fill="#FFFFFF" font-weight="bold">
     中
   </text>
+  
+  <!-- 中间双向箭头（可选，用于强调翻译双向性） -->
+  <g transform="translate(32,32)">
+    <path d="M -8 0 L -4 -5 L -4 -3 L 4 -3 L 4 -5 L 8 0 L 4 5 L 4 3 L -4 3 L -4 5 Z" fill="#FFFFFF" opacity="0.8"/>
+  </g>
 </svg>
