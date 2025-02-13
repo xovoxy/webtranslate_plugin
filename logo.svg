@@ -1,0 +1,12 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  <!-- 圆形背景 -->
+  <circle cx="24" cy="24" r="22" fill="#2575FC"/>
+  <!-- 上方显示英文 "A" -->
+  <text x="24" y="21" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="14" fill="white">
+    A
+  </text>
+  <!-- 下方显示中文 "中" -->
+  <text x="24" y="33" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="14" fill="white">
+    中
+  </text>
+</svg>

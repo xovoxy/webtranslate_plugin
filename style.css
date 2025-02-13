@@ -1,0 +1,49 @@
+/* 按钮样式：内嵌 SVG 图标 */
+#translate-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 48px;
+    height: 48px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    z-index: 1000;
+    padding: 0;
+    transition: transform 0.2s;
+  }
+  #translate-toggle:hover {
+    transform: scale(1.1);
+  }
+  
+  /* 当处于激活状态时，改变 SVG 内圆的颜色以示区分 */
+  #translate-toggle.active svg .bg-circle {
+    fill: #FF5722; /* 例如改为橙色 */
+  }
+  
+  /* 翻译文本样式：直接采用所在上下文样式，且设置为不可选中 */
+  .translation-text {
+    display: block;
+    font: inherit;
+    color: inherit;
+    margin-top: 4px;
+    user-select: none;
+  }
+  
+  /* 通知信息（Toast）样式 */
+  .notification {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 4px;
+    z-index: 2000;
+    opacity: 1;
+    transition: opacity 0.5s;
+  }
+  .notification.fade-out {
+    opacity: 0;
+  }
