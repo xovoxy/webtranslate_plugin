@@ -130,22 +130,31 @@
 
   // 在选中文本后插入翻译结果（使用容器包装）
   function insertTranslation(originalText, translatedText) {
+    // 检查是否已存在该原文对应的翻译，防止重复插入
+    if (currentTranslations.some(container => container.dataset.originalText === originalText)) {
+      return; // 已存在，直接退出
+    }
+  
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
     const range = selection.getRangeAt(0);
+    // 将光标定位到选区末尾，保证插入内容出现在原文本之后
     range.collapse(false);
-    
-    // 创建容器包装翻译结果
+  
+    // 创建容器包装中文翻译
     const container = document.createElement('div');
     container.className = 'translation-container';
-    
+    container.dataset.originalText = originalText;
+  
+    // 创建显示中文翻译的元素
     const translationSpan = document.createElement('span');
     translationSpan.className = 'translation-text';
     translationSpan.textContent = translatedText;
     container.appendChild(translationSpan);
-    
+  
+    // 在原文本后的光标位置插入翻译容器
     range.insertNode(container);
-    
+  
     // 保存到数组中，便于后续统一删除
     currentTranslations.push(container);
   }
