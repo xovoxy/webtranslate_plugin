@@ -1,49 +1,84 @@
 /* 按钮样式：内嵌 SVG 图标 */
 #translate-toggle {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 48px;
-    height: 48px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    z-index: 1000;
-    padding: 0;
-    transition: transform 0.2s;
+  position: fixed;
+  top: 50%;
+  right: 0;
+  width: 48px;
+  height: 48px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  z-index: 1000;
+  padding: 0;
+  /* 默认时向右平移 32px，使按钮只有 16px 显示出来 */
+  transform: translateX(32px) translateY(-50%);
+  transition: transform 0.3s ease;
+}
+#translate-toggle:hover {
+  /* 鼠标悬停时移回正常位置，完全显示按钮 */
+  transform: translateX(0) translateY(-50%);
+}
+
+/* 当处于激活状态时，改变 SVG 内圆的颜色以示区分 */
+#translate-toggle.active svg .bg-circle {
+  fill: #FF5722; /* 例如改为橙色 */
+}
+
+/* 翻译文本样式：直接采用所在上下文样式，且设置为不可选中 */
+.translation-text {
+  display: block;
+  font: inherit;
+  color: inherit;
+  margin-top: 4px;
+  user-select: none;
+}
+
+/* 通知容器：用于放置多个通知 */
+#notification-container {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Toast 通知样式 */
+.notification {
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 5px;
+  opacity: 0;
+  animation: slideUpFadeIn 0.5s forwards;
+}
+
+@keyframes slideUpFadeIn {
+  from {
+      opacity: 0;
+      transform: translateY(20px);
   }
-  #translate-toggle:hover {
-    transform: scale(1.1);
+  to {
+      opacity: 1;
+      transform: translateY(0);
   }
-  
-  /* 当处于激活状态时，改变 SVG 内圆的颜色以示区分 */
-  #translate-toggle.active svg .bg-circle {
-    fill: #FF5722; /* 例如改为橙色 */
+}
+
+/* 淡出动画 */
+.notification.fade-out {
+  animation: fadeOut 0.5s forwards;
+}
+
+@keyframes fadeOut {
+  from {
+      opacity: 1;
+      transform: translateY(0);
   }
-  
-  /* 翻译文本样式：直接采用所在上下文样式，且设置为不可选中 */
-  .translation-text {
-    display: block;
-    font: inherit;
-    color: inherit;
-    margin-top: 4px;
-    user-select: none;
+  to {
+      opacity: 0;
+      transform: translateY(-20px);
   }
-  
-  /* 通知信息（Toast）样式 */
-  .notification {
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.8);
-    color: #fff;
-    padding: 10px 20px;
-    border-radius: 4px;
-    z-index: 2000;
-    opacity: 1;
-    transition: opacity 0.5s;
-  }
-  .notification.fade-out {
-    opacity: 0;
-  }
+}
