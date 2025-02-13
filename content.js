@@ -139,9 +139,6 @@
     const container = document.createElement('div');
     container.className = 'translation-container';
     
-    // 可选：插入一个换行
-    container.appendChild(document.createElement('br'));
-    
     const translationSpan = document.createElement('span');
     translationSpan.className = 'translation-text';
     translationSpan.textContent = translatedText;
