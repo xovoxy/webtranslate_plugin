@@ -78,14 +78,21 @@
   function addEventListeners() {
     document.addEventListener('mouseup', handleTextSelection);
     document.addEventListener('click', handleDocumentClick);
+    document.addEventListener('blur', handleInputBlur, true);
   }
   function removeEventListeners() {
     document.removeEventListener('mouseup', handleTextSelection);
     document.removeEventListener('click', handleDocumentClick);
+    document.removeEventListener('blur', handleInputBlur, true);
   }
 
   // 处理文本选中事件
   function handleTextSelection(e) {
+    // 如果事件目标在 input 或 textarea 内，则不执行翻译
+    if (e.target.closest('input, textarea, [contenteditable="true"]')) {
+      return;
+    }
+
     // 避免在点击翻译按钮时触发翻译
     if (e.target.closest('#translate-toggle')) return;
 
@@ -160,9 +167,9 @@
   }
 
   // 调用免费的 Google 翻译接口进行翻译
-  async function fetchTranslation(text) {
+  async function fetchTranslation(text, sourceLang = 'en', targetLang = 'zh-CN') {
     const encodedText = encodeURIComponent(text);
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodedText}`;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodedText}`;
     const response = await fetch(url);
     const data = await response.json();
     if (data && Array.isArray(data[0])) {
@@ -173,6 +180,102 @@
       return { translation: translation };
     } else {
       throw new Error("翻译接口返回数据格式错误");
+    }
+  }
+
+  // 处理输入框/可编辑区域失焦时的翻译
+  function simulateUserInput(target, newText) {
+    target.focus();
+  
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      // 对于输入框/文本区域，使用 setRangeText 模拟用户全选替换文本
+      target.setRangeText(newText, 0, target.value.length, 'end');
+      // 分发 InputEvent 和 Change 事件
+      target.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+    } else if (target.isContentEditable) {
+      // 对于 contenteditable 元素，采用 execCommand 模拟用户输入
+      document.execCommand('selectAll', false, null);
+      document.execCommand('insertText', false, newText);
+      // 分发 InputEvent 和 Change 事件
+      target.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+  
+      // 模拟 composition 事件（模拟 IME 输入，有助于某些富文本编辑器更新内部状态）
+      const compStart = new CompositionEvent('compositionstart', {
+        bubbles: true,
+        cancelable: true,
+        data: newText
+      });
+      target.dispatchEvent(compStart);
+      
+      const compUpdate = new CompositionEvent('compositionupdate', {
+        bubbles: true,
+        cancelable: true,
+        data: newText
+      });
+      target.dispatchEvent(compUpdate);
+      
+      const compEnd = new CompositionEvent('compositionend', {
+        bubbles: true,
+        cancelable: true,
+        data: newText
+      });
+      target.dispatchEvent(compEnd);
+  
+      // 模拟按键事件（keydown 和 keyup），进一步模拟真实用户输入
+      const keydownEvent = new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        key: 'a'
+      });
+      target.dispatchEvent(keydownEvent);
+      
+      const keyupEvent = new KeyboardEvent('keyup', {
+        bubbles: true,
+        cancelable: true,
+        key: 'a'
+      });
+      target.dispatchEvent(keyupEvent);
+  
+      // 重新聚焦并将光标定位到末尾，确保后续输入正确
+      // target.focus();
+      // const range = document.createRange();
+      // range.selectNodeContents(target);
+      // range.collapse(false);
+      // const sel = window.getSelection();
+      // sel.removeAllRanges();
+      // sel.addRange(range);
+    }
+  }
+  
+  function handleInputBlur(e) {
+    const target = e.target;
+    if (
+      target &&
+      (target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable)
+    ) {
+      let text = '';
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        text = target.value.trim();
+      } else if (target.isContentEditable) {
+        text = target.textContent.trim();
+      }
+      // 如果文本中包含中文，则进行翻译
+      if (text && /[\u4e00-\u9fa5]/.test(text)) {
+        fetchTranslation(text, 'zh-CN', 'en')
+          .then(data => {
+            // 延迟执行，避免在 blur 事件中直接操作引起冲突
+            setTimeout(() => {
+              simulateUserInput(target, data.translation);
+            }, 0);
+          })
+          .catch(error => {
+            console.error("输入区域翻译失败:", error);
+          });
+      }
     }
   }
 
