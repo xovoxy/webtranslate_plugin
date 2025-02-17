@@ -188,69 +188,83 @@
     target.focus();
 
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-      // 对于输入框/文本区域，使用 setRangeText 模拟用户全选替换文本
-      target.setRangeText(newText, 0, target.value.length, 'end');
-      // 分发 InputEvent 和 Change 事件
-      target.dispatchEvent(new InputEvent('input', { bubbles: true }));
-      target.dispatchEvent(new Event('change', { bubbles: true }));
+      let currentIndex = 0;
+
+      function inputNextCharacter() {
+        if (currentIndex < newText.length) {
+          const newChar = newText.slice(0, currentIndex + 1);
+
+          target.setRangeText(newChar, 0, target.value.length, 'end');
+          // 分发 InputEvent 和 Change 事件
+          target.dispatchEvent(new InputEvent('input', { bubbles: true }));
+          target.dispatchEvent(new Event('change', { bubbles: true }));
+          currentIndex++;
+          setTimeout(inputNextCharacter, 100); // 每次输入间隔 100ms
+        }
+      }
+      inputNextCharacter()
     } else if (target.isContentEditable) {
-      // 对于 contenteditable 元素，采用 execCommand 模拟用户输入
-      document.execCommand('selectAll', false, null);
-      document.execCommand('insertText', false, newText);
-      // 分发 InputEvent 和 Change 事件
-      target.dispatchEvent(new InputEvent('input', { bubbles: true }));
-      target.dispatchEvent(new Event('change', { bubbles: true }));
+      let currentIndex = 0;
+      // 每次插入一个字符
+      function inputNextCharacter() {
+        if (currentIndex < newText.length) {
+          const newChar = newText.slice(0, currentIndex + 1);
 
-      // 模拟 composition 事件（模拟 IME 输入，有助于某些富文本编辑器更新内部状态）
-      const compStart = new CompositionEvent('compositionstart', {
-        bubbles: true,
-        cancelable: true,
-        data: newText
-      });
-      target.dispatchEvent(compStart);
+          // 对于 contenteditable 元素，采用 execCommand 模拟用户输入
+          document.execCommand('selectAll', false, null);
+          document.execCommand('insertText', false, newChar);
+          // 分发 InputEvent 和 Change 事件
+          target.dispatchEvent(new InputEvent('input', { bubbles: true }));
+          target.dispatchEvent(new Event('change', { bubbles: true }));
 
-      const compUpdate = new CompositionEvent('compositionupdate', {
-        bubbles: true,
-        cancelable: true,
-        data: newText
-      });
-      target.dispatchEvent(compUpdate);
+          // 模拟 composition 事件（模拟 IME 输入，有助于某些富文本编辑器更新内部状态）
+          const compStart = new CompositionEvent('compositionstart', {
+            bubbles: true,
+            cancelable: true,
+            data: newChar
+          });
+          target.dispatchEvent(compStart);
 
-      const compEnd = new CompositionEvent('compositionend', {
-        bubbles: true,
-        cancelable: true,
-        data: newText
-      });
-      target.dispatchEvent(compEnd);
+          const compUpdate = new CompositionEvent('compositionupdate', {
+            bubbles: true,
+            cancelable: true,
+            data: newChar
+          });
+          target.dispatchEvent(compUpdate);
 
-      // 模拟按键事件（keydown 和 keyup），进一步模拟真实用户输入
-      const keydownEvent = new KeyboardEvent('keydown', {
-        bubbles: true,
-        cancelable: true,
-        key: 'a'
-      });
-      target.dispatchEvent(keydownEvent);
+          const compEnd = new CompositionEvent('compositionend', {
+            bubbles: true,
+            cancelable: true,
+            data: newChar
+          });
+          target.dispatchEvent(compEnd);
 
-      const keyupEvent = new KeyboardEvent('keyup', {
-        bubbles: true,
-        cancelable: true,
-        key: 'a'
-      });
-      target.dispatchEvent(keyupEvent);
+          // 模拟按键事件（keydown 和 keyup），进一步模拟真实用户输入
+          const keydownEvent = new KeyboardEvent('keydown', {
+            bubbles: true,
+            cancelable: true,
+            key: 'a'
+          });
+          target.dispatchEvent(keydownEvent);
 
-      // 重新聚焦并将光标定位到末尾，确保后续输入正确
-      target.focus();
-      const range = document.createRange();
-      range.selectNodeContents(target);
-      range.collapse(false);
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
+          const keyupEvent = new KeyboardEvent('keyup', {
+            bubbles: true,
+            cancelable: true,
+            key: 'a'
+          });
+          target.dispatchEvent(keyupEvent);
+
+          currentIndex++;
+
+          setTimeout(inputNextCharacter, 100);
+        }
+      }
+      inputNextCharacter();
     }
   }
 
   function handleAltTShortcut(e) {
-    if (e.altKey && e.keyCode === 84){
+    if (e.altKey && e.keyCode === 84) {
       e.preventDefault();
       const target = e.target;
       if (
