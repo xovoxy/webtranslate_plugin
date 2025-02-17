@@ -210,57 +210,25 @@
         if (currentIndex < newText.length) {
           const newChar = newText.slice(0, currentIndex + 1);
 
-          // 对于 contenteditable 元素，采用 execCommand 模拟用户输入
           document.execCommand('selectAll', false, null);
-          document.execCommand('insertText', false, newChar);
-          // 分发 InputEvent 和 Change 事件
+          const selection = window.getSelection();
+          const range = selection.getRangeAt(0);
+
+          // 将光标位置移动到选区末尾，并插入文本
+          range.deleteContents(); // 删除当前选区内容
+          // 创建新的文本节点
+          const textNode = document.createTextNode(newChar);
+          range.insertNode(textNode); // 插入新的字符节点
+
           target.dispatchEvent(new InputEvent('input', { bubbles: true }));
           target.dispatchEvent(new Event('change', { bubbles: true }));
 
-          // 模拟 composition 事件（模拟 IME 输入，有助于某些富文本编辑器更新内部状态）
-          const compStart = new CompositionEvent('compositionstart', {
-            bubbles: true,
-            cancelable: true,
-            data: newChar
-          });
-          target.dispatchEvent(compStart);
-
-          const compUpdate = new CompositionEvent('compositionupdate', {
-            bubbles: true,
-            cancelable: true,
-            data: newChar
-          });
-          target.dispatchEvent(compUpdate);
-
-          const compEnd = new CompositionEvent('compositionend', {
-            bubbles: true,
-            cancelable: true,
-            data: newChar
-          });
-          target.dispatchEvent(compEnd);
-
-          // 模拟按键事件（keydown 和 keyup），进一步模拟真实用户输入
-          const keydownEvent = new KeyboardEvent('keydown', {
-            bubbles: true,
-            cancelable: true,
-            key: 'a'
-          });
-          target.dispatchEvent(keydownEvent);
-
-          const keyupEvent = new KeyboardEvent('keyup', {
-            bubbles: true,
-            cancelable: true,
-            key: 'a'
-          });
-          target.dispatchEvent(keyupEvent);
-
           currentIndex++;
-
           setTimeout(inputNextCharacter, 100);
         }
       }
-      inputNextCharacter();
     }
+    inputNextCharacter();
   }
 
   function handleAltTShortcut(e) {
