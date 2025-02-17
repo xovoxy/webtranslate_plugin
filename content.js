@@ -78,12 +78,12 @@
   function addEventListeners() {
     document.addEventListener('mouseup', handleTextSelection);
     document.addEventListener('click', handleDocumentClick);
-    document.addEventListener('blur', handleInputBlur, true);
+    document.addEventListener('keydown', handleAltTShortcut);
   }
   function removeEventListeners() {
     document.removeEventListener('mouseup', handleTextSelection);
     document.removeEventListener('click', handleDocumentClick);
-    document.removeEventListener('blur', handleInputBlur, true);
+    document.removeEventListener('keydown', handleAltTShortcut);
   }
 
   // 处理文本选中事件
@@ -141,27 +141,27 @@
     if (currentTranslations.some(container => container.dataset.originalText === originalText)) {
       return; // 已存在，直接退出
     }
-  
+
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
     const range = selection.getRangeAt(0);
     // 将光标定位到选区末尾，保证插入内容出现在原文本之后
     range.collapse(false);
-  
+
     // 创建容器包装中文翻译
     const container = document.createElement('div');
     container.className = 'translation-container';
     container.dataset.originalText = originalText;
-  
+
     // 创建显示中文翻译的元素
     const translationSpan = document.createElement('span');
     translationSpan.className = 'translation-text';
     translationSpan.textContent = translatedText;
     container.appendChild(translationSpan);
-  
+
     // 在原文本后的光标位置插入翻译容器
     range.insertNode(container);
-  
+
     // 保存到数组中，便于后续统一删除
     currentTranslations.push(container);
   }
@@ -186,7 +186,7 @@
   // 处理输入框/可编辑区域失焦时的翻译
   function simulateUserInput(target, newText) {
     target.focus();
-  
+
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
       // 对于输入框/文本区域，使用 setRangeText 模拟用户全选替换文本
       target.setRangeText(newText, 0, target.value.length, 'end');
@@ -200,7 +200,7 @@
       // 分发 InputEvent 和 Change 事件
       target.dispatchEvent(new InputEvent('input', { bubbles: true }));
       target.dispatchEvent(new Event('change', { bubbles: true }));
-  
+
       // 模拟 composition 事件（模拟 IME 输入，有助于某些富文本编辑器更新内部状态）
       const compStart = new CompositionEvent('compositionstart', {
         bubbles: true,
@@ -208,21 +208,21 @@
         data: newText
       });
       target.dispatchEvent(compStart);
-      
+
       const compUpdate = new CompositionEvent('compositionupdate', {
         bubbles: true,
         cancelable: true,
         data: newText
       });
       target.dispatchEvent(compUpdate);
-      
+
       const compEnd = new CompositionEvent('compositionend', {
         bubbles: true,
         cancelable: true,
         data: newText
       });
       target.dispatchEvent(compEnd);
-  
+
       // 模拟按键事件（keydown 和 keyup），进一步模拟真实用户输入
       const keydownEvent = new KeyboardEvent('keydown', {
         bubbles: true,
@@ -230,51 +230,54 @@
         key: 'a'
       });
       target.dispatchEvent(keydownEvent);
-      
+
       const keyupEvent = new KeyboardEvent('keyup', {
         bubbles: true,
         cancelable: true,
         key: 'a'
       });
       target.dispatchEvent(keyupEvent);
-  
+
       // 重新聚焦并将光标定位到末尾，确保后续输入正确
-      // target.focus();
-      // const range = document.createRange();
-      // range.selectNodeContents(target);
-      // range.collapse(false);
-      // const sel = window.getSelection();
-      // sel.removeAllRanges();
-      // sel.addRange(range);
+      target.focus();
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
     }
   }
-  
-  function handleInputBlur(e) {
-    const target = e.target;
-    if (
-      target &&
-      (target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable)
-    ) {
-      let text = '';
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-        text = target.value.trim();
-      } else if (target.isContentEditable) {
-        text = target.textContent.trim();
-      }
-      // 如果文本中包含中文，则进行翻译
-      if (text && /[\u4e00-\u9fa5]/.test(text)) {
-        fetchTranslation(text, 'zh-CN', 'en')
-          .then(data => {
-            // 延迟执行，避免在 blur 事件中直接操作引起冲突
-            setTimeout(() => {
-              simulateUserInput(target, data.translation);
-            }, 0);
-          })
-          .catch(error => {
-            console.error("输入区域翻译失败:", error);
-          });
+
+  function handleAltTShortcut(e) {
+    if (e.altKey && e.keyCode === 84){
+      e.preventDefault();
+      const target = e.target;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        let text = '';
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+          text = target.value.trim();
+        } else if (target.isContentEditable) {
+          text = target.textContent.trim();
+        }
+        // 如果文本中包含中文，则进行翻译
+        if (text && /[\u4e00-\u9fa5]/.test(text)) {
+          fetchTranslation(text, 'zh-CN', 'en')
+            .then(data => {
+              // 延迟执行，避免在 blur 事件中直接操作引起冲突
+              setTimeout(() => {
+                simulateUserInput(target, data.translation);
+              }, 0);
+            })
+            .catch(error => {
+              console.error("输入区域翻译失败:", error);
+            });
+        }
       }
     }
   }
@@ -293,7 +296,7 @@
     notification.className = 'notification';
     notification.textContent = message;
     container.appendChild(notification);
-    
+
     // 经过一定时间后触发淡出动画，并在动画结束后移除该通知
     setTimeout(() => {
       notification.classList.add('fade-out');
