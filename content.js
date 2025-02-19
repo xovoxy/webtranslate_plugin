@@ -105,7 +105,7 @@
     isDragSelection = distance > 5;
 
     const selectionText = window.getSelection().toString().trim();
-    if (selectionText) {
+    if (selectionText && /[a-zA-Z]/.test(selectionText)) {
       fetchTranslation(selectionText)
         .then(data => {
           insertTranslation(selectionText, data.translation);
