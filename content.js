@@ -170,7 +170,6 @@
   async function fetchTranslation(text, targetLang = 'zh-CN') {
     const encodedText = encodeURIComponent(text);
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodedText}`;
-    console.log(url);
     const response = await fetch(url);
     const data = await response.json();
     if (data && Array.isArray(data[0])) {
