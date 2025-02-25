@@ -105,7 +105,7 @@
     isDragSelection = distance > 5;
 
     const selectionText = window.getSelection().toString().trim();
-    if (selectionText && /[a-zA-Z]/.test(selectionText)) {
+    if (selectionText) {
       fetchTranslation(selectionText)
         .then(data => {
           insertTranslation(selectionText, data.translation);
@@ -167,9 +167,10 @@
   }
 
   // 调用免费的 Google 翻译接口进行翻译
-  async function fetchTranslation(text, sourceLang = 'en', targetLang = 'zh-CN') {
+  async function fetchTranslation(text, targetLang = 'zh-CN') {
     const encodedText = encodeURIComponent(text);
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodedText}`;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodedText}`;
+    console.log(url);
     const response = await fetch(url);
     const data = await response.json();
     if (data && Array.isArray(data[0])) {
@@ -249,7 +250,7 @@
         }
         // 如果文本中包含中文，则进行翻译
         if (text && /[\u4e00-\u9fa5]/.test(text)) {
-          fetchTranslation(text, 'zh-CN', 'en')
+          fetchTranslation(text, 'en')
             .then(data => {
               // 延迟执行，避免在 blur 事件中直接操作引起冲突
               setTimeout(() => {
