@@ -6,6 +6,8 @@
   let mouseDownPos = { x: 0, y: 0 };
   // 标志：判断鼠标操作是否为拖拽选择文本（拖拽距离超过阈值时认为是选择）
   let isDragSelection = false;
+  let deepSeekToken = '';
+  let translator = 'google'; // 默认使用Google翻译
 
   // 创建图标按钮，内嵌 SVG 图标
   const button = document.createElement('button');
@@ -40,9 +42,10 @@
     mouseDownPos = { x: e.clientX, y: e.clientY };
   });
 
-  // 从 storage 中读取自动翻译状态
-  chrome.storage.sync.get(['translationEnabled'], function (result) {
+  chrome.storage.sync.get(['translationEnabled', 'deepSeekToken', 'translator'], function (result) {
     translationEnabled = result.translationEnabled || false;
+    deepSeekToken = result.deepSeekToken || '';
+    translator = result.translator || 'google';
     updateButtonState();
     if (translationEnabled) {
       addEventListeners();
@@ -80,20 +83,15 @@
     document.addEventListener('click', handleDocumentClick);
     document.addEventListener('keydown', handleAltTShortcut);
   }
+
   function removeEventListeners() {
     document.removeEventListener('mouseup', handleTextSelection);
     document.removeEventListener('click', handleDocumentClick);
     document.removeEventListener('keydown', handleAltTShortcut);
   }
 
-  // 处理文本选中事件
   function handleTextSelection(e) {
-    // 如果事件目标在 input 或 textarea 内，则不执行翻译
-    if (e.target.closest('input, textarea, [contenteditable="true"]')) {
-      return;
-    }
-
-    // 避免在点击翻译按钮时触发翻译
+    if (e.target.closest('input, textarea, [contenteditable="true"]')) return;
     if (e.target.closest('#translate-toggle')) return;
 
     // 计算鼠标拖拽距离，判断是否为选择操作
@@ -107,11 +105,10 @@
     const selectionText = window.getSelection().toString().trim();
     if (selectionText) {
       fetchTranslation(selectionText)
-        .then(data => {
-          insertTranslation(selectionText, data.translation);
-        })
+        .then(data => insertTranslation(selectionText, data.translation))
         .catch(error => {
           console.error("翻译失败:", error);
+          showNotification(error.message);
           insertTranslation(selectionText, "翻译失败");
         });
     }
@@ -137,10 +134,7 @@
 
   // 在选中文本后插入翻译结果（使用容器包装）
   function insertTranslation(originalText, translatedText) {
-    // 检查是否已存在该原文对应的翻译，防止重复插入
-    if (currentTranslations.some(container => container.dataset.originalText === originalText)) {
-      return; // 已存在，直接退出
-    }
+    if (currentTranslations.some(container => container.dataset.originalText === originalText)) return;
 
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
@@ -161,103 +155,134 @@
 
     // 在原文本后的光标位置插入翻译容器
     range.insertNode(container);
-
-    // 保存到数组中，便于后续统一删除
     currentTranslations.push(container);
   }
 
-  // 调用免费的 Google 翻译接口进行翻译
   async function fetchTranslation(text, targetLang = 'zh-CN') {
+    if (translator === 'deepseek') {
+      return fetchDeepSeekTranslation(text, targetLang);
+    } else {
+      return fetchGoogleTranslation(text, targetLang);
+    }
+  }
+
+  // DeepSeek翻译函数
+  async function fetchDeepSeekTranslation(text, targetLang) {
+    if (!deepSeekToken) {
+      throw new Error("请先在扩展设置中配置DeepSeek API Token");
+    }
+
+    const langMap = {
+      'zh-CN': 'Chinese',
+      'en': 'English'
+    };
+    const targetLanguage = langMap[targetLang] || 'Chinese';
+
+    try {
+      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${deepSeekToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            { role: 'system', content: `You are a translator. Translate the following text to ${targetLanguage} accurately and naturally.` },
+            { role: 'user', content: text }
+          ],
+          temperature: 0.7,
+          max_tokens: 1000
+        })
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const data = await response.json();
+      if (data.choices && data.choices.length > 0) {
+        return { translation: data.choices[0].message.content.trim() };
+      } else {
+        throw new Error("DeepSeek API 返回数据格式错误");
+      }
+    } catch (error) {
+      throw new Error(`DeepSeek翻译失败: ${error.message}`);
+    }
+  }
+
+  // Google翻译函数
+  async function fetchGoogleTranslation(text, targetLang = 'zh-CN') {
     const encodedText = encodeURIComponent(text);
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodedText}`;
-    const response = await fetch(url);
-    const data = await response.json();
-    if (data && Array.isArray(data[0])) {
-      let translation = "";
-      for (let i = 0; i < data[0].length; i++) {
-        translation += data[0][i][0];
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data && Array.isArray(data[0])) {
+        let translation = "";
+        for (let i = 0; i < data[0].length; i++) {
+          translation += data[0][i][0];
+        }
+        return { translation: translation };
+      } else {
+        throw new Error("Google翻译接口返回数据格式错误");
       }
-      return { translation: translation };
-    } else {
-      throw new Error("翻译接口返回数据格式错误");
+    } catch (error) {
+      throw new Error(`Google翻译失败: ${error.message}`);
     }
   }
 
   // 处理输入框/可编辑区域失焦时的翻译
   function simulateUserInput(target, newText) {
     target.focus();
-
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
       let currentIndex = 0;
-
       function inputNextCharacter() {
         if (currentIndex < newText.length) {
           const newChar = newText.slice(0, currentIndex + 1);
-
           target.setRangeText(newChar, 0, target.value.length, 'end');
           // 分发 InputEvent 和 Change 事件
           target.dispatchEvent(new InputEvent('input', { bubbles: true }));
           target.dispatchEvent(new Event('change', { bubbles: true }));
           currentIndex++;
-          setTimeout(inputNextCharacter, 100); // 每次输入间隔 100ms
+          setTimeout(inputNextCharacter, 100);
         }
       }
-      inputNextCharacter()
+      inputNextCharacter();
     } else if (target.isContentEditable) {
       let currentIndex = 0;
       // 每次插入一个字符
       function inputNextCharacter() {
         if (currentIndex < newText.length) {
           const newChar = newText.slice(0, currentIndex + 1);
-
           document.execCommand('selectAll', false, null);
           const selection = window.getSelection();
           const range = selection.getRangeAt(0);
-
-          // 将光标位置移动到选区末尾，并插入文本
-          range.deleteContents(); // 删除当前选区内容
-          // 创建新的文本节点
+          range.deleteContents();
           const textNode = document.createTextNode(newChar);
-          range.insertNode(textNode); // 插入新的字符节点
-
+          range.insertNode(textNode);
           target.dispatchEvent(new InputEvent('input', { bubbles: true }));
           target.dispatchEvent(new Event('change', { bubbles: true }));
-
           currentIndex++;
           setTimeout(inputNextCharacter, 100);
         }
       }
+      inputNextCharacter();
     }
-    inputNextCharacter();
   }
 
   function handleAltTShortcut(e) {
     if (e.altKey && e.keyCode === 84) {
       e.preventDefault();
       const target = e.target;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
-      ) {
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
         let text = '';
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-          text = target.value.trim();
-        } else if (target.isContentEditable) {
-          text = target.textContent.trim();
-        }
-        // 如果文本中包含中文，则进行翻译
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') text = target.value.trim();
+        else if (target.isContentEditable) text = target.textContent.trim();
         if (text && /[\u4e00-\u9fa5]/.test(text)) {
           fetchTranslation(text, 'en')
-            .then(data => {
-              // 延迟执行，避免在 blur 事件中直接操作引起冲突
-              setTimeout(() => {
-                simulateUserInput(target, data.translation);
-              }, 0);
-            })
+            .then(data => setTimeout(() => simulateUserInput(target, data.translation), 0))
             .catch(error => {
               console.error("输入区域翻译失败:", error);
+              showNotification(error.message);
             });
         }
       }
@@ -266,42 +291,40 @@
 
   // 优化后的显示通知信息（Toast 弹窗）
   function showNotification(message) {
-    // 查找或创建通知容器
     let container = document.getElementById('notification-container');
     if (!container) {
       container = document.createElement('div');
       container.id = 'notification-container';
       document.body.appendChild(container);
     }
-    // 创建通知元素
     const notification = document.createElement('div');
     notification.className = 'notification';
     notification.textContent = message;
     container.appendChild(notification);
 
-    // 经过一定时间后触发淡出动画，并在动画结束后移除该通知
     setTimeout(() => {
       notification.classList.add('fade-out');
       notification.addEventListener('animationend', () => {
         notification.remove();
-        if (container.childElementCount === 0) {
-          container.remove();
-        }
+        if (container.childElementCount === 0) container.remove();
       });
     }, 2000);
   }
 
   // 监听 storage 变化，实现多页面状态同步
   chrome.storage.onChanged.addListener(function (changes, area) {
-    if (area === 'sync' && changes.translationEnabled) {
-      translationEnabled = changes.translationEnabled.newValue;
-      updateButtonState();
-      if (translationEnabled) {
-        addEventListeners();
-      } else {
-        removeEventListeners();
-        removeAllTranslations();
+    if (area === 'sync') {
+      if (changes.translationEnabled) {
+        translationEnabled = changes.translationEnabled.newValue;
+        updateButtonState();
+        if (translationEnabled) addEventListeners();
+        else {
+          removeEventListeners();
+          removeAllTranslations();
+        }
       }
+      if (changes.deepSeekToken) deepSeekToken = changes.deepSeekToken.newValue;
+      if (changes.translator) translator = changes.translator.newValue;
     }
   });
 })();
