@@ -191,7 +191,7 @@
             { role: 'system', content: `You are a translator. Translate the following text to ${targetLanguage} accurately and naturally.` },
             { role: 'user', content: text }
           ],
-          temperature: 0.7,
+          temperature: 1.3,
           max_tokens: 1000
         })
       });
